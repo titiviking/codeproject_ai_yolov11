@@ -1,5 +1,9 @@
-# Add runtime dependencies like torch, torchvision, opencv-python as needed
-# torch>=1.13.0
-# torchvision
-# opencv-python
-# numpy
+# Core dependencies for the CodeProject.AI YOLOv11 module.
+# torch / torchvision are intentionally unpinned here so the install scripts
+# can substitute platform-specific wheels (CUDA, ROCm, CPU, Apple MPS).
+numpy<2.0
+torch>=2.0.0
+torchvision>=0.15.0
+ultralytics>=8.3.0
+Pillow
+CodeProject-AI-SDK

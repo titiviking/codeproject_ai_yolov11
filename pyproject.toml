@@ -1,11 +1,25 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "codeproject-ai-yolov11"
-version = "0.0.1"
-authors = [{name="Your Name"}]
-description = "CodeProject AI 2.7.9 module for YOLOv11 support"
+version = "1.0.0"
+description = "CodeProject.AI 2.7.9 drop-in module for YOLOv11 object detection"
+readme = "README.md"
+license = "AGPL-3.0"
 requires-python = ">=3.8"
 dependencies = []
+
+[project.optional-dependencies]
+runtime = [
+    "numpy<2.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "ultralytics>=8.3.0",
+    "Pillow",
+]
+dev = []
+
+[tool.setuptools.packages.find]
+include = ["codeproject_ai_yolov11*"]

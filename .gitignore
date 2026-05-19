@@ -5,3 +5,16 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+.claude/
+*.egg-info/
+dist/
+build/
+
+# Model weights — large binaries, downloaded at install time
+assets/*.pt
+custom-models/*.pt
+
+# Test images — downloaded at install time
+test/*.jpg
+test/*.png
+

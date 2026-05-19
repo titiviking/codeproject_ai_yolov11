@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Object Detection (YOLOv11) — Explorer</title>
+  <style>
+    :root {
+      --accent: #0078d4;
+      --bg: #1e1e2e;
+      --surface: #2a2a3e;
+      --border: #3e3e5e;
+      --text: #cdd6f4;
+      --muted: #888aaa;
+      --success: #a6e3a1;
+      --error: #f38ba8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; padding: 1.5rem; }
+    h1 { font-size: 1.3rem; margin-bottom: 1.2rem; color: #89b4fa; }
+    h2 { font-size: 1rem; margin-bottom: .7rem; color: var(--text); }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.2rem; margin-bottom: 1rem; }
+    label { font-size: .85rem; color: var(--muted); display: block; margin-bottom: .25rem; }
+    input[type="file"], input[type="number"], input[type="text"], select {
+      width: 100%; padding: .45rem .6rem; border: 1px solid var(--border);
+      border-radius: 5px; background: var(--bg); color: var(--text); font-size: .9rem; margin-bottom: .6rem;
+    }
+    button {
+      background: var(--accent); color: #fff; border: none; border-radius: 5px;
+      padding: .5rem 1.2rem; cursor: pointer; font-size: .9rem; margin-right: .5rem;
+    }
+    button:hover { opacity: .85; }
+    button.secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+    #preview { max-width: 100%; max-height: 320px; border-radius: 6px; margin-top: .6rem; display: none; }
+    canvas { max-width: 100%; border-radius: 6px; margin-top: .8rem; display: none; }
+    pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: .8rem; font-size: .78rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .row > * { flex: 1; min-width: 220px; }
+    .badge { display: inline-block; padding: .2rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
+    .badge.ok  { background: #1a4a2e; color: var(--success); }
+    .badge.err { background: #4a1a1a; color: var(--error);   }
+    #status { margin-bottom: .5rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th, td { padding: .35rem .5rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<h1>Object Detection (YOLOv11) — Explorer</h1>
+
+<div class="card">
+  <h2>Server</h2>
+  <div class="row">
+    <div>
+      <label>Base URL</label>
+      <input type="text" id="serverUrl" value="http://localhost:32168" />
+    </div>
+    <div>
+      <label>Confidence threshold</label>
+      <input type="number" id="confidence" value="0.4" min="0" max="1" step="0.05" />
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Image</h2>
+  <label>Select an image file</label>
+  <input type="file" id="imageFile" accept="image/*" />
+  <img id="preview" alt="preview" />
+  <canvas id="canvas"></canvas>
+</div>
+
+<div class="card">
+  <h2>Detection</h2>
+  <div class="row">
+    <div>
+      <button onclick="runDetect()">Standard Detect</button>
+      <button onclick="runSegment()">Segment</button>
+      <button class="secondary" onclick="listModels()">List Custom Models</button>
+    </div>
+    <div>
+      <label>Custom model name (optional)</label>
+      <div style="display:flex;gap:.4rem">
+        <input type="text" id="customModel" placeholder="ipcam-general" style="margin-bottom:0" />
+        <button onclick="runCustom()">Custom Detect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div id="status"></div>
+  <h2>Response</h2>
+  <pre id="output">— awaiting request —</pre>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+$("imageFile").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  $("preview").src = url;
+  $("preview").style.display = "block";
+  $("canvas").style.display  = "none";
+});
+
+function base() { return $("serverUrl").value.replace(/\/$/, ""); }
+function conf()  { return parseFloat($("confidence").value) || 0.4; }
+
+async function callDetection(route, formData) {
+  $("output").textContent = "…";
+  $("status").innerHTML   = "";
+  try {
+    const r = await fetch(`${base()}/v1/${route}`, { method: "POST", body: formData });
+    const json = await r.json();
+    $("output").textContent = JSON.stringify(json, null, 2);
+    $("status").innerHTML = json.success
+      ? `<span class="badge ok">success</span>`
+      : `<span class="badge err">failed</span>`;
+    if (json.success && json.predictions?.length) drawBoxes(json.predictions);
+    return json;
+  } catch (err) {
+    $("output").textContent = String(err);
+    $("status").innerHTML = `<span class="badge err">error</span>`;
+  }
+}
+
+function makeForm() {
+  const file = $("imageFile").files[0];
+  if (!file) { alert("Please select an image first."); return null; }
+  const fd = new FormData();
+  fd.append("image", file);
+  fd.append("min_confidence", conf());
+  return fd;
+}
+
+async function runDetect() {
+  const fd = makeForm(); if (!fd) return;
+  callDetection("vision/detection", fd);
+}
+
+async function runSegment() {
+  const fd = makeForm(); if (!fd) return;
+  callDetection("vision/segmentation", fd);
+}
+
+async function runCustom() {
+  const fd = makeForm(); if (!fd) return;
+  const model = $("customModel").value.trim() || "general";
+  callDetection(`vision/custom/${model}`, fd);
+}
+
+async function listModels() {
+  $("output").textContent = "…";
+  try {
+    const r    = await fetch(`${base()}/v1/vision/custom/list`, { method: "POST", body: new FormData() });
+    const json = await r.json();
+    $("output").textContent = JSON.stringify(json, null, 2);
+    $("status").innerHTML   = json.success
+      ? `<span class="badge ok">success</span>`
+      : `<span class="badge err">failed</span>`;
+  } catch (err) {
+    $("output").textContent = String(err);
+    $("status").innerHTML = `<span class="badge err">error</span>`;
+  }
+}
+
+function drawBoxes(predictions) {
+  const img = $("preview");
+  if (!img.complete || !img.naturalWidth) return;
+  const canvas = $("canvas");
+  canvas.width  = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  canvas.style.display = "block";
+  $("preview").style.display = "none";
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+
+  const colors = ["#f38ba8","#fab387","#f9e2af","#a6e3a1","#89dceb","#89b4fa","#cba6f7"];
+  const labelSet = {};
+  let colorIdx = 0;
+
+  predictions.forEach(p => {
+    if (!(p.label in labelSet)) labelSet[p.label] = colors[colorIdx++ % colors.length];
+    const color = labelSet[p.label];
+    const { x_min, y_min, x_max, y_max, label, confidence } = p;
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2;
+    ctx.strokeRect(x_min, y_min, x_max - x_min, y_max - y_min);
+    const text = `${label} ${(confidence * 100).toFixed(0)}%`;
+    ctx.font = "bold 13px system-ui";
+    const tw  = ctx.measureText(text).width;
+    ctx.fillStyle = color;
+    ctx.fillRect(x_min, y_min - 18, tw + 8, 18);
+    ctx.fillStyle = "#000";
+    ctx.fillText(text, x_min + 4, y_min - 4);
+
+    if (p.mask?.length) {
+      ctx.beginPath();
+      ctx.moveTo(p.mask[0][0], p.mask[0][1]);
+      p.mask.slice(1).forEach(([mx, my]) => ctx.lineTo(mx, my));
+      ctx.closePath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = color + "44";
+      ctx.fill();
+    }
+  });
+}
+</script>
+</body>
+</html>
