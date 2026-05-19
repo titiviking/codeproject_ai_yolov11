@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codeproject-ai-yolov11"
+version = "0.0.1"
+authors = [{name="Your Name"}]
+description = "CodeProject AI 2.7.9 module for YOLOv11 support"
+requires-python = ">=3.8"
+dependencies = []

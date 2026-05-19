@@ -1,0 +1,5 @@
+# Add runtime dependencies like torch, torchvision, opencv-python as needed
+# torch>=1.13.0
+# torchvision
+# opencv-python
+# numpy
