@@ -1,5 +1,7 @@
 # Object Detection (YOLOv11)
 
+**GitHub:** https://github.com/titiviking/codeproject_ai_yolov11
+
 A drop-in module for [CodeProject.AI Server](https://github.com/codeproject/CodeProject.AI-Server) that
 adds YOLOv11 object detection and segmentation using the
 [ultralytics](https://github.com/ultralytics/ultralytics) library.
