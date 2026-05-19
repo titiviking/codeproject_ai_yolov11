@@ -10,8 +10,7 @@ __pycache__/
 dist/
 build/
 
-# Model weights — large binaries, downloaded at install time
-assets/*.pt
+# Model weights are tracked via Git LFS (see .gitattributes)
 custom-models/*.pt
 
 # Test images — downloaded at install time
