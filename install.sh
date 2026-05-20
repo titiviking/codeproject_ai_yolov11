@@ -24,30 +24,34 @@ if [ "$os_name" = "Big Sur" ]; then
     installPythonPackagesByName "opencv-python==4.6.0.66" "OpenCV 4.6.0.66 for macOS 11.x"
 fi
 
-# Download YOLOv11 models
-if [ "$moduleInstallErrors" = "" ]; then
-    getFromServer "models/" "objectdetection-coco-yolo11-pt-nsmlx.zip"    "assets"        "Downloading YOLOv11 object detection models..."
-    getFromServer "models/" "objectsegmentation-coco-yolo11-pt-nsmlx.zip" "assets"        "Downloading YOLOv11 segmentation models..."
-    getFromServer "models/" "objectdetection-custom-yolo11-pt-m.zip"      "custom-models" "Downloading custom YOLOv11 models..."
-fi
-
-# Fallback: download pre-trained models directly from ultralytics if the
-# CPAI model server is unavailable (useful for offline/dev environments).
+# Ensure model weights are present in assets/.
+# If the module was installed from the git repo (with LFS), the .pt files are
+# already there. Otherwise download them directly from ultralytics.
 if [ "$moduleInstallErrors" = "" ]; then
     assetsDir="${moduleDirPath}/assets"
     mkdir -p "$assetsDir"
 
     ultralytics_base="https://github.com/ultralytics/assets/releases/download/v8.3.0"
+    missing=0
 
     for model in yolo11n yolo11s yolo11m yolo11l yolo11x yolo11n-seg yolo11m-seg yolo11x-seg; do
         modelFile="${model}.pt"
-        if [ ! -f "${assetsDir}/${modelFile}" ]; then
+        modelPath="${assetsDir}/${modelFile}"
+
+        # A git-lfs pointer file is ~130 bytes; real .pt files are megabytes.
+        # Treat small files as missing so they get fetched properly.
+        if [ ! -f "${modelPath}" ] || [ "$(wc -c < "${modelPath}")" -lt 1024 ]; then
+            missing=$((missing + 1))
             writeLine "Downloading ${modelFile} from ultralytics..." $color_info
-            wget -q "${ultralytics_base}/${modelFile}" -O "${assetsDir}/${modelFile}" 2>/dev/null || \
-                curl -sL "${ultralytics_base}/${modelFile}" -o "${assetsDir}/${modelFile}" 2>/dev/null || \
+            wget -q "${ultralytics_base}/${modelFile}" -O "${modelPath}" 2>/dev/null || \
+                curl -fsSL "${ultralytics_base}/${modelFile}" -o "${modelPath}" 2>/dev/null || \
                 writeLine "Warning: could not download ${modelFile} — place it manually in assets/" $color_warn
         fi
     done
+
+    if [ "$missing" -eq 0 ]; then
+        writeLine "All YOLOv11 model weights already present." $color_info
+    fi
 fi
 
 # Download self-test image
@@ -59,6 +63,3 @@ if [ "$moduleInstallErrors" = "" ]; then
              -O "${testDir}/home-office.jpg" 2>/dev/null || true
     fi
 fi
-
-# TODO: Validate that assets were created successfully
-# moduleInstallErrors=...
